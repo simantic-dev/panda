@@ -9,5 +9,6 @@ HERE=$(cd -- "$(dirname -- "$0")" && pwd)
 PYRITE=${PYRITE:-$HOME/dev/simantic/pyrite} PY=${PY:-python3}
 rm -rf "$HERE/.kit" && mkdir -p "$HERE/.kit"
 git -C "$PYRITE" archive origin/main docs/video/assets docs/video/render.py | tar -x -C "$HERE/.kit" --strip-components=2
-"$PY" "$HERE/collect.py" "$HERE/runs/demo.txt" "$HERE/data.js" "$(head -1 "$HERE/runs/sim-version.txt")"
+# the repo venv: collect.py decodes the car-bus frame with opendbc
+"$HERE/../../.venv/bin/python" "$HERE/collect.py" "$HERE/runs/demo.txt" "$HERE/data.js" "$(head -1 "$HERE/runs/sim-version.txt")"
 "$PY" "$HERE/.kit/render.py" "$HERE/video.html" "$@"

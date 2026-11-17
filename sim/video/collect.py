@@ -27,12 +27,21 @@ bus = [{"id": int(m[1], 16), "data": m[2], "t": float(m[3])}
 assert fw and mode and off and on, "demo output incomplete"
 assert off[1] == "False" and on[1] == "True"
 assert [(s["torque"], s["blocked"]) for s in steers] == [(10, True), (10, False), (1600, True)], steers
+assert 0.7 < steers[0]["t"] < 1.3 and 2.3 < car_engage < 2.7, "story spread over ~5 s"
+assert 0.7 < steers[1]["t"] - car_engage < 1.4 and 0.7 < steers[2]["t"] - steers[1]["t"] < 1.3, steers
 assert steers[0]["t"] < car_engage <= float(on[2]) < steers[1]["t"], "block before engage, allowed after"
 assert health == {"safety_tx_blocked": 2, "safety_rx_invalid": 0, "faults": 0}, health
 assert len(bus) == 1 and bus[0]["id"] == 0x2E4, f"only STEERING_LKA reached the car: {bus}"
-lka = bytes.fromhex(bus[0]["data"])
-torque = int.from_bytes(lka[1:3], "big", signed=True)   # STEER_TORQUE_CMD, bytes 1-2 in comma's Toyota DBC
-assert lka[0] & 1 and torque == 10, f"decoded {lka.hex()}"
+# Decoded with opendbc's own DBC parser and comma's Toyota DBC (the repo venv), as the video says.
+from opendbc.can.dbc import DBC
+from opendbc.car.toyota.values import CAR, DBC as DBC_NAMES
+lka_msg, lka = DBC(DBC_NAMES[CAR.TOYOTA_PRIUS]["pt"]).addr_to_msg[0x2E4], bytes.fromhex(bus[0]["data"])
+def sig(name):
+  s = lka_msg.sigs[name]; r = s.get_raw_value(lka)
+  if s.is_signed and r >> (s.size - 1): r -= 1 << s.size
+  return r * s.factor + s.offset
+torque = int(sig("STEER_TORQUE_CMD"))
+assert lka_msg.name == "STEERING_LKA" and sig("STEER_REQUEST") == 1 and torque == 10, f"decoded {lka.hex()}"
 assert steers[1]["t"] - 0.1 < bus[0]["t"] < steers[1]["t"], "the frame on the bus is the sent command"
 
 DATA = {

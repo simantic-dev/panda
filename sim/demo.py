@@ -28,10 +28,13 @@ p = Panda(Panda.sim_serial_at(5781))  # waits for the simulated panda to boot an
 
 def tick(seconds, engaged):
   """openpilot's 10 Hz loop: heartbeat, drain the receive buffer, wait."""
-  for _ in range(max(1, round(seconds / 0.1))):
+  end = Panda.sim_time() + seconds  # by simulated time: each USB round trip also takes some
+  while True:
     p.send_heartbeat(engaged=engaged)
     p.can_recv()
     Panda.sim_sleep(0.1)
+    if Panda.sim_time() >= end - 0.05:
+      break
 
 
 def steer(torque, engaged):
@@ -56,7 +59,7 @@ print(f"panda {p.get_usb_serial()[:8]}  firmware {p.get_version()}")
 p.set_safety_mode(safety.safetyModel.raw, safety.safetyParam)
 print(f"safety mode {SAFETY_NAME[p.health()['safety_mode']]} param 0x{safety.safetyParam:x}, as openpilot sets it for {CAR_MODEL}")
 
-tick(0.3, False)
+tick(1.0 - Panda.sim_time(), False)  # virtual time: spread the story over ~5 s so each step reads on its own
 print(f"\ncruise off: controls_allowed={p.health()['controls_allowed']}")
 steer(10, False)
 
@@ -64,7 +67,9 @@ while not p.health()["controls_allowed"]:  # the car engages cruise; panda sees 
   assert Panda.sim_time() < 10, f"panda never allowed controls: {p.health()}"
   tick(0.1, True)
 print(f"\ncruise on:  controls_allowed={p.health()['controls_allowed']}  (panda saw PCM_CRUISE engage at {Panda.sim_time():.2f} s)")
+tick(1.0, True)
 steer(10, True)
+tick(1.0, True)
 steer(1600, True)
 
 h = p.health()

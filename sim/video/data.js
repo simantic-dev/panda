@@ -8,27 +8,27 @@ window.DATA = {
  "car": "TOYOTA_PRIUS",
  "steers": [
   {
-   "t": 0.85,
+   "t": 1.19,
    "torque": 10,
    "blocked": true
   },
   {
-   "t": 3.21,
+   "t": 3.72,
    "torque": 10,
    "blocked": false
   },
   {
-   "t": 3.24,
+   "t": 4.89,
    "torque": 1600,
    "blocked": true
   }
  ],
- "panda_engage": 3.13,
- "car_engage": 3.0,
+ "panda_engage": 2.67,
+ "car_engage": 2.5,
  "bus": {
   "id": 740,
   "data": "03000a00f8",
-  "t": 3.133,
+  "t": 3.639,
   "torque": 10
  },
  "health": {

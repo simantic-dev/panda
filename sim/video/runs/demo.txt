@@ -2,14 +2,14 @@ panda 01eeffc0  firmware DEV-8ae88ad1-DEBUG
 safety mode toyota param 0x242, as openpilot sets it for TOYOTA_PRIUS
 
 cruise off: controls_allowed=False
-   0.85 s  openpilot STEERING_LKA torque 10    -> BLOCKED by panda
+   1.19 s  openpilot STEERING_LKA torque 10    -> BLOCKED by panda
 
-cruise on:  controls_allowed=True  (panda saw PCM_CRUISE engage at 3.13 s)
-   3.21 s  openpilot STEERING_LKA torque 10    -> sent to car
-   3.24 s  openpilot STEERING_LKA torque 1600  -> BLOCKED by panda
+cruise on:  controls_allowed=True  (panda saw PCM_CRUISE engage at 2.67 s)
+   3.72 s  openpilot STEERING_LKA torque 10    -> sent to car
+   4.89 s  openpilot STEERING_LKA torque 1600  -> BLOCKED by panda
 
 health: safety_tx_blocked 2  safety_rx_invalid 0  faults 0
 
 what reached the car's bus (the car's own log):
-  cruise ENGAGED at 3.000 s
-  on car bus: id=0x2e4 data=03000a00f8 at 3.133 s
+  cruise ENGAGED at 2.500 s
+  on car bus: id=0x2e4 data=03000a00f8 at 3.639 s

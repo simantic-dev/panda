@@ -16,6 +16,7 @@ if [ "${1:-}" = build ]; then
 fi
 [ -f board/obj/panda_h7.bin.signed ] || { echo "firmware missing: run ./demo build first" >&2; exit 1; }
 log=$(mktemp)
+export SIM_ENGAGE_AT_S="${SIM_ENGAGE_AT_S:-2.5}"  # the car engages cruise 2.5 s in
 "$SIM" run --scenario sim/toyota_prius.yaml --timeout 100000 --usb-raw panda.usb_otg_hs:5781 >"$log" 2>&1 &
 sim_pid=$!
 trap 'kill $sim_pid 2>/dev/null; rm -f "$log"' EXIT
