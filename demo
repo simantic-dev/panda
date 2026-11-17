@@ -1,0 +1,24 @@
+#!/bin/sh
+# comma panda's own firmware on a simulated STM32H723 (bootstub + signed app, as flashed), on a Toyota Prius's
+# CAN bus. sim/demo.py plays openpilot with comma's panda library; the car is sim/cars/car.py.
+# Usage: ./demo build   (once: Python 3.12 venv with this repo's deps, firmware, car frames)
+#        ./demo         (needs `sim` on PATH or SIM=/path/to/sim)
+set -eu
+cd "$(dirname "$0")"
+SIM="${SIM:-sim}"
+if [ "${1:-}" = build ]; then
+  [ -d .venv ] || python3.12 -m venv .venv
+  .venv/bin/pip -q install -e ".[dev]"
+  mkdir -p board/obj
+  .venv/bin/scons -j4 board/obj/panda_h7.bin.signed board/obj/panda_h7/bootstub.elf
+  .venv/bin/python sim/cars/gen_frames.py toyota_prius
+  exit 0
+fi
+[ -f board/obj/panda_h7.bin.signed ] || { echo "firmware missing: run ./demo build first" >&2; exit 1; }
+log=$(mktemp)
+"$SIM" run --scenario sim/toyota_prius.yaml --timeout 100000 --usb-raw panda.usb_otg_hs:5781 >"$log" 2>&1 &
+sim_pid=$!
+trap 'kill $sim_pid 2>/dev/null; rm -f "$log"' EXIT
+.venv/bin/python -u sim/demo.py
+echo "\nwhat reached the car's bus (the car's own log):"
+grep -E "\[car\] (cruise|on car bus)" "$log" | sed 's/^\[car\] /  /'

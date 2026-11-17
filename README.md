@@ -1,5 +1,38 @@
 # Welcome to panda
 
+> **This fork:** panda's own firmware (bootstub + signed app, built from this repo) runs on a simulated
+> STM32H723, on a simulated Toyota Prius's CAN bus, driven by comma's own panda library. No hardware.
+
+```sh
+./demo build   # once: Python 3.12 venv with this repo's dependencies, the firmware, the car's frames
+./demo         # needs `sim` on PATH: curl -fsSL https://simantic.com/install | sh
+```
+
+![panda's Toyota safety on a simulated car](media/panda-demo.gif)
+
+```mermaid
+flowchart LR
+  op["sim/demo.py: openpilot's side<br/>comma's panda library (python/)"]
+  subgraph sim["Simantic simulator"]
+    panda["STM32H723VG (cuatro)<br/>panda bootstub + signed app, unmodified"]
+    car(["Toyota Prius, bus 0<br/>sim/cars/car.py: opendbc-packed frames<br/>at the car's rates"])
+    cam(["camera, bus 2<br/>sim/cars/camera.py"])
+  end
+  op -- "USB: safety mode, heartbeat,<br/>STEERING_LKA, health" --> panda
+  car -- "FDCAN1: WHEEL_SPEEDS, STEER_TORQUE_SENSOR,<br/>PCM_CRUISE, BRAKE_MODULE" --- panda
+  panda -- "FDCAN3: forwarded traffic" --- cam
+```
+
+openpilot sets the safety mode it uses for a Prius (`toyota`, param from opendbc's `CarInterface`), and
+panda's Toyota safety code decides what reaches the car: steering is blocked until panda sees cruise engage
+on the car's bus, then allowed within limits, and an over-limit torque is blocked. Every car frame is packed
+by opendbc from comma's Toyota DBC; the car replays them at the rates panda's safety checks. The host sleeps
+in the simulator's time, so panda's timing checks see a real cadence.
+
+Not modelled: the harness relay and ignition wiring, SPI to the comma device, and the car's response to
+steering. The car is a replay, not a vehicle model. Simantic is a proprietary simulator, not open source.
+
+
 panda speaks CAN and CAN FD, and it runs on the [STM32H725](https://www.st.com/resource/en/reference_manual/rm0468-stm32h723733-stm32h725735-and-stm32h730-value-line-advanced-armbased-32bit-mcus-stmicroelectronics.pdf).
 
 ## Directory structure

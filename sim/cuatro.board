@@ -1,0 +1,24 @@
+rcc:
+    hseFrequency: 25000000
+// cuatro: relay lines PA9/PA3 and DC_IN_EN_N PC11, FAN_EN PD3, fan PWM PC8 are open drain with board pull-ups
+gpioPortA:
+    pullUps: "3 9"
+gpioPortC:
+    pullUps: "8 11"
+gpioPortD:
+    pullUps: "3"
+adcM1S2:
+    referenceVoltage: 1.8
+adc3:
+    referenceVoltage: 1.8
+// cuatro board id straps (detect_board_type: id2 == 3): PD6 and PD7 tied low, PD4/PD5 left to the pad pull-up
+straps: Scripted.ScriptedGpioPeer @ none
+    file: "sim/pin_script.py"
+    // driven from 100 us: a level driven at t = 0 does not reach the pad (see the report)
+    config: "{\"events\": [{\"at_us\": 100, \"line\": 0, \"level\": 0}, {\"at_us\": 100, \"line\": 1, \"level\": 0}]}"
+    numberOfGpios: 2
+    0 -> gpioPortD@6
+    1 -> gpioPortD@7
+// supply: cuatro reads its input voltage on ADC1 IN8 through an 11:1 divider (cuatro_read_voltage_mV); 1.2 V = 13.2 V
+vin: Analog.ADCChannelSource @ adcM1S2 8
+    defaultValueMicroVolts: 1200000
