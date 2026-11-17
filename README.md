@@ -10,6 +10,8 @@
 
 ![panda's Toyota safety on a simulated car](media/panda-demo.gif)
 
+**[▶ Watch the 61 s explainer video](media/panda-demo-video.mp4)**
+
 ```mermaid
 flowchart LR
   op["sim/demo.py: openpilot's side<br/>comma's panda library (python/)"]
