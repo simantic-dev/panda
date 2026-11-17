@@ -136,8 +136,7 @@ openpilot frames, and no `safety_rx_invalid`. Every rx check passed on the recor
 What does not match:
 
 - `faults`: the real panda reports `interruptRateCan1,interruptRateCan2` at every sample. They were already set when
-  the segment started (panda uptime 2590 s). The simulated panda raises none on the same traffic.
-- `faults`: unchanged by the TFE fix below.
+  the segment started (panda uptime 2590 s). The simulated panda raises none on the same traffic, with or without the TFE fix below.
 - openpilot's frames mostly do not reach the car. The real panda echoed all 1493 `0x488` and 298 `0x27d` in this
   window (`src` 128), with `txBufferOverflow` 0. In the simulation, 4 `0x488` and 1 `0x27d` reached the car, with
   `safety_tx_blocked` 0, so panda's safety did not reject them.
