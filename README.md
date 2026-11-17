@@ -1,3 +1,5 @@
+> **[Simantic](https://simantic.com)** runs this firmware on simulated hardware, no board needed. Try it at [simantic.com](https://simantic.com).
+
 # Welcome to panda
 
 > **This fork:** panda's own firmware (bootstub + signed app, built from this repo) runs on a simulated
