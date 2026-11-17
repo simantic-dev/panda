@@ -1,0 +1,101 @@
+<!doctype html><meta charset="utf-8">
+<!-- comma panda demo video in the pyrite docs/video house style. ./make.sh fetches the kit into .kit/, writes
+     data.js from the recorded run and renders video.mp4. Open this page in a browser to play it; ?t=20 holds a frame. -->
+<link rel="stylesheet" href=".kit/assets/base.css"><link rel="stylesheet" href=".kit/assets/video.css">
+<style>
+.pd-box { padding: 18px 24px; } .pd-box .pd-k { font: 500 17px var(--mono); color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.pd-box .pd-v { font: 500 30px/1.25 var(--sans); margin-top: 6px; } .pd-box .pd-s { font: 400 21px/1.3 var(--sans); color: var(--muted); margin-top: 4px; }
+.pd-sim { border: 2px dashed var(--sim); border-radius: 6px; background: #e4efec; } .pd-sim .pd-k { color: var(--sim); }
+.pd-wire { position: absolute; height: 2px; background: var(--ink); } .pd-wire.pd-w-sim { background: var(--sim); }
+.pd-bus { position: absolute; font: 500 19px var(--mono); color: var(--muted); }
+.pd-legend { font: 400 21px var(--sans); color: var(--muted); display: flex; gap: 34px; }
+.pd-legend span { display: flex; align-items: center; gap: 10px; } .pd-legend i { width: 22px; height: 14px; border-radius: 3px; display: block; }
+.pd-row { display: grid; grid-template-columns: 150px 1fr 330px; align-items: center; padding: 22px 28px; font: 400 26px var(--mono); }
+.pd-t { color: var(--sim); } .pd-no { color: var(--red); font-weight: 500; } .pd-ok { color: var(--sim); font-weight: 500; }
+.pd-flag { font: 500 64px var(--mono); margin-top: 8px; }
+.pd-frame { font: 500 30px var(--mono); margin-top: 8px; } .pd-dec { font: 400 24px/1.5 var(--mono); margin-top: 10px; color: var(--muted); }
+</style>
+<body>
+<script src="data.js"></script><script src=".kit/assets/video.js"></script>
+<script>
+const D = window.DATA;   // every value on screen comes from data.js (collect.py, from the recorded run)
+const [s0, s1, s2] = D.steers, f = D.bus;
+const hex = n => "0x" + n.toString(16).toUpperCase();
+const verdict = s => s.blocked ? `<span class="pd-no">BLOCKED by panda</span>` : `<span class="pd-ok">sent to car</span>`;
+const row = (s, id) => `<div class="abs card pd-row" style="left:0;width:1100px" id="${id}"><span class="pd-t">${s.t.toFixed(2)} s</span><span>STEERING_LKA torque ${s.torque}</span>${verdict(s)}</div>`;
+const flag = (id, v) => `<div class="abs card stack pd-box" style="left:1200px;top:0;width:560px" id="${id}"><div class="pd-k">panda health: controls_allowed</div><div class="pd-flag" style="color:${v ? "var(--sim)" : "var(--red)"}">${v ? "True" : "False"}</div></div>`;
+const EVS = [[s0.t, "openpilot steers", "blocked"], [D.car_engage, "car engages cruise", "PCM_CRUISE"], [D.panda_engage, "panda allows controls", "controls_allowed"],
+             [s1.t, "torque " + s1.torque, "sent"], [s2.t, "torque " + s2.torque, "blocked"]];
+
+Video({
+  title: "comma panda firmware on a simulated STM32H723",
+  logo: ".kit/assets/logo-full.svg",
+  steps: [["setup", "Setup"], ["off", "Cruise off"], ["engage", "Engage"], ["steer", "Steer"], ["time", "Time"]],
+  scenes: [
+    { key: "title", from: 0, to: 5,
+      html: `<div class="center title" style="bottom:-60px"><h1>comma's panda keeps openpilot<br>inside the car's safety limits</h1><p>Its real firmware, unmodified, on a simulated STM32H723 and a Toyota Prius's CAN bus.</p></div>`,
+      draw(t, a, e) { appear($("h1", e), t, a + 0.3, 0.8); appear($("p", e), t, a + 1.0, 0.8); } },
+
+    { key: "setup", from: 5, to: 17, step: "setup",
+      caption: ["Setup", "panda's own firmware runs between openpilot and the car.",
+        (t, a) => t < a + 6 ? "comma's panda library plays openpilot over USB, as it would on a car." : "The car replays frames packed by opendbc from comma's Toyota DBC, at the car's rates."],
+      html: `
+        <div class="abs pd-legend" style="left:0;top:0" id="su-leg"><span><i style="background:#fff;border:1.5px solid var(--ink)"></i>real software, unchanged</span><span><i class="pd-sim"></i>simulated</span></div>
+        <div class="abs card pd-box" style="left:0;top:230px;width:360px" id="su-op"><div class="pd-k">openpilot's side</div><div class="pd-v">comma's panda library</div><div class="pd-s">safety mode, heartbeat, steering, health</div></div>
+        <div class="pd-wire" style="left:360px;top:300px;width:160px" id="su-w0"></div><div class="pd-bus" style="left:410px;top:262px" id="su-l0">USB</div>
+        <div class="abs pd-sim pd-box" style="left:520px;top:110px;width:540px;height:400px" id="su-mcu"><div class="pd-k">STM32H723 · simulated chip</div>
+          <div class="card stack pd-box" style="margin-top:60px" id="su-fw"><div class="pd-k">Firmware</div><div class="pd-v">panda bootstub + signed app</div><div class="pd-s" style="font-family:var(--mono)">${D.firmware}</div></div></div>
+        <div class="pd-wire pd-w-sim" style="left:1060px;top:180px;width:180px" id="su-w1"></div><div class="pd-bus" style="left:1080px;top:142px" id="su-l1">CAN bus 0</div>
+        <div class="abs pd-sim pd-box" style="left:1240px;top:90px;width:520px" id="su-car"><div class="pd-v" style="margin-top:0">Toyota Prius</div><div class="pd-s">opendbc-packed frames, replayed: speeds, steering torque, cruise</div></div>
+        <div class="pd-wire pd-w-sim" style="left:1060px;top:430px;width:180px" id="su-w2"></div><div class="pd-bus" style="left:1080px;top:392px" id="su-l2">CAN bus 2</div>
+        <div class="abs pd-sim pd-box" style="left:1240px;top:370px;width:520px" id="su-cam"><div class="pd-v" style="margin-top:0">Camera node</div><div class="pd-s">gets the traffic panda forwards</div></div>`,
+      draw(t, a) {
+        appear($("#su-leg"), t, a + 0.4); appear($("#su-mcu"), t, a + 0.7); appear($("#su-fw"), t, a + 1.3);
+        ["#su-op", "#su-w0", "#su-l0"].forEach(s => appear($(s), t, a + 2.1));
+        ["#su-car", "#su-w1", "#su-l1"].forEach(s => appear($(s), t, a + 3.0));
+        ["#su-cam", "#su-w2", "#su-l2"].forEach(s => appear($(s), t, a + 3.7));
+      } },
+
+    { key: "off", from: 17, to: 26, step: "off",
+      caption: ["Cruise off", "With cruise off, openpilot asks to steer. panda blocks it.",
+        `openpilot set the safety mode it uses for this car: ${D.safety}, param ${D.param}.`],
+      html: `<div class="abs label" style="left:0;top:0" id="of-lab">openpilot's steering commands, simulated time</div>
+             ${row(s0, "of-r0").replace('style="', 'style="top:60px;')}${flag("of-f", false)}`,
+      draw(t, a) { appear($("#of-f"), t, a + 0.6); appear($("#of-lab"), t, a + 1.4); appear($("#of-r0"), t, a + 2.0); } },
+
+    { key: "engage", from: 26, to: 35, step: "engage",
+      caption: ["Engage", "The car engages cruise. panda sees it on the bus and allows controls.",
+        "Nobody tells panda: it reads the car's PCM_CRUISE frame itself."],
+      html: `<div class="abs card stack pd-box" style="left:0;top:0;width:560px" id="en-car"><div class="pd-k">the car's log</div><div class="pd-v">cruise engaged at <span class="pd-t">${D.car_engage.toFixed(3)} s</span></div></div>
+             <div class="abs card stack pd-box" style="left:0;top:220px;width:560px" id="en-pd"><div class="pd-k">openpilot reads panda's health</div><div class="pd-v">controls allowed at <span class="pd-t">${D.panda_engage.toFixed(2)} s</span></div></div>
+             ${flag("en-f0", false)}${flag("en-f1", true)}`,
+      draw(t, a) {
+        appear($("#en-f0"), t, a); appear($("#en-car"), t, a + 0.7); appear($("#en-pd"), t, a + 2.2);
+        $("#en-f1").style.opacity = prog(t, a + 2.6, a + 3.1); $("#en-f0").style.opacity *= 1 - prog(t, a + 2.6, a + 3.1);
+      } },
+
+    { key: "steer", from: 35, to: 47, step: "steer",
+      caption: ["Steer", "A small torque reaches the car. One over the limit does not.",
+        (t, a) => t < a + 6.5 ? `The car's own log shows the frame panda put on its bus.` : `panda counted ${D.health.safety_tx_blocked} blocked sends and ${D.health.faults} faults.`],
+      html: `${row(s1, "st-r1").replace('style="', 'style="top:0;')}${row(s2, "st-r2").replace('style="', 'style="top:420px;')}
+             <div class="abs card stack pd-box" style="left:60px;top:130px;width:1040px" id="st-bus"><div class="pd-k">on the car's bus, from the car's log</div>
+               <div class="pd-frame">${hex(f.id)} STEERING_LKA &nbsp;${f.data} &nbsp;<span class="pd-t">${f.t.toFixed(3)} s</span></div>
+               <div class="pd-dec">decoded with comma's Toyota DBC: STEER_TORQUE_CMD = ${f.torque}</div></div>
+             <div class="abs card pd-box" style="left:1200px;top:0;width:560px" id="st-h"><div class="pd-k">panda health</div>
+               <div class="pd-frame">safety_tx_blocked ${D.health.safety_tx_blocked}</div><div class="pd-frame">safety_rx_invalid ${D.health.safety_rx_invalid}</div><div class="pd-frame">faults ${D.health.faults}</div></div>`,
+      draw(t, a) { appear($("#st-r1"), t, a + 0.6); appear($("#st-bus"), t, a + 1.8); appear($("#st-r2"), t, a + 4.0); appear($("#st-h"), t, a + 6.5); } },
+
+    { key: "time", from: 47, to: 56, step: "time",
+      caption: ["Time", "openpilot's host runs in the simulator's time, not the clock on the wall.",
+        "The USB bridge stamps each reply with simulated time, so panda sees a real 10 Hz loop."],
+      html: `<div class="abs label" style="left:0;top:0" id="ti-lab">the whole run, in simulated seconds</div>
+             ${EVS.map(([v, n, k], i) => `<div class="abs card pd-row" style="left:0;top:${60 + i * 100}px;width:1100px" id="ti-e${i}"><span class="pd-t">${v.toFixed(2)} s</span><span style="font-family:var(--sans)">${n}</span><span style="color:var(--muted)">${k}</span></div>`).join("")}`,
+      draw(t, a) { appear($("#ti-lab"), t, a + 0.4); EVS.forEach((_, i) => appear($("#ti-e" + i), t, a + 0.8 + i * 0.6)); } },
+
+    { key: "end", from: 56, to: 61,
+      html: `<div class="center end" style="bottom:-100px"><img src=".kit/assets/logo-full.svg"><p>Real firmware. Simulated hardware.</p><div class="u">simantic.com</div></div>`,
+      draw(t, a, e) { appear($("img", e), t, a + 0.4, 0.8); appear($("p", e), t, a + 1.0, 0.8); appear($(".u", e), t, a + 1.6, 0.8); } },
+  ],
+});
+</script>
+</body>
