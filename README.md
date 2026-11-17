@@ -83,6 +83,75 @@ The first CarState is parsed before the car's first frames arrive, so opendbc re
 10 deg step is over panda's angle rate limit at 90 km/h (`steer_angle_cmd_checks_vm`). Each USB round trip
 costs simulated time, which is why openpilot's loop is slower than 10 Hz here.
 
+### Tesla Model 3: replaying a real drive
+
+```sh
+./demo tesla-replay   # comma's public Model 3 test drive through the simulated panda, against the real panda's log
+```
+
+The drive is `79d0f04c82980004/00000003--fb0b5d9cfc` (`TESLA_MODEL_3` in opendbc's `car/tests/routes.py`, HW4 2025,
+openpilot 0.11.2). `sim/replay/extract.py` downloads segment 7's rlog the way opendbc's car tests do (comma API
+`/v1/route/<route>/files`, no login) and cereal's schema pinned at an openpilot commit, both into `../tesla-route/`
+(not committed), and cuts a 30 s window around openpilot's engagement (6 s before the real panda's `controlsAllowed`
+goes True) into JSON.
+
+- The car (`sim/cars/replay.py`, bus 0) and camera (`sim/cars/replay_camera.py`, bus 2) send exactly the frames the
+  real panda received (`can` with `src` 0 and 2) at their logged offsets in simulated time. `src` 128+ are panda's
+  tx echoes and are not replayed. Each `can` event is one 100 Hz batch, so its frames are spread over the gap since
+  the previous batch.
+- The host (`sim/demo_tesla_replay.py`) sends openpilot's recorded `sendcan` (`DAS_steeringControl`, `APS_eacMonitor`)
+  at their logged times and, at each logged `pandaStates` time, a heartbeat with `selfdriveState.enabled` and a health
+  read. The safety mode and param come from the log's `carParams`.
+- Then it compares, at each of the 298 `pandaStates` samples: `controls_allowed`, `safety_tx_blocked` (delta from
+  the window start), `safety_rx_invalid` and `faults`.
+
+Real output (about 10 minutes of wall time):
+
+```
+panda 01eeffc0  firmware DEV-8ae88ad1-DEBUG
+drive 79d0f04c82980004/00000003--fb0b5d9cfc segment 7, TESLA_MODEL_3, openpilot 0.11.2 (4dbdd66e); cereal schema at openpilot b3ab22ef
+safety mode tesla param 0x0, from the log's carParams
+replaying 30 s of the drive from 3.0 s of simulated time
+
+host: 1493 sendcan batches and 298 heartbeat+health reads over 29.9 s of drive, as logged; lateness vs log median 2.6 ms, p95 7.7 ms, max 8.3 ms
+
+engage (controls_allowed False -> True): real 6.00 s  sim 6.00 s  (window time; logged engage 6.00 s)
+safety_tx_blocked over the window: real +0  sim +0
+safety model: real tesla param 0; sim tesla param 0
+
+298 pandaStates samples compared; mismatches (field: real vs sim, at window times):
+  faults: real interruptRateCan1,interruptRateCan2 vs sim none  (298 samples, 0.07..29.91 s)
+
+openpilot's frames sent to panda (bus 0): 0x27d:299 0x488:1493; compare 'frames from panda' on bus 0 below
+panda bus 0: total_tx_cnt 13709 total_tx_lost_cnt 0 total_fwd_cnt 75416 bus_off_cnt 0; usb rx_buffer_overflow 173323 tx_buffer_overflow 2533
+
+what reached the car's bus (the car's own log):
+  bus 0: replay done at 32.990 s; frames from panda by id: 0x051:2932 0x11b:632 0x129:2807 0x12b:293 0x209:733 0x20a:44 0x20e:293 0x248:293 0x25d:333 0x27d:1 0x293:58 0x299:1466 0x2b9:734 0x32b:62 0x34f:171 0x389:64 0x39b:63 0x3e9:59 0x40c:29 0x488:4 0x489:1466 0x5d0:30 0x5d1:117 0x5d4:366 0x5e5:366 0x7ff:293
+```
+
+What matches: the safety mode, the engagement (`controls_allowed` goes True at the same pandaStates sample as on the
+real panda, driven only by the car's own `DI_state` on the bus), `controls_allowed` at every sample, no blocked
+openpilot frames, and no `safety_rx_invalid`. Every rx check passed on the recorded counters and checksums.
+
+What does not match:
+
+- `faults`: the real panda reports `interruptRateCan1,interruptRateCan2` at every sample. They were already set when
+  the segment started (panda uptime 2590 s). The simulated panda raises none on the same traffic.
+- openpilot's frames mostly do not reach the car. The real panda echoed all 1493 `0x488` and 298 `0x27d` in this
+  window (`src` 128), with `txBufferOverflow` 0. In the simulation, 4 `0x488` and 1 `0x27d` reached the car, while
+  `safety_tx_blocked` stayed 0 and `tx_buffer_overflow` reached 2533. So the frames were lost before panda's safety
+  saw them, not rejected by it. panda only takes a USB bulk transfer when all three CAN tx queues have room
+  (`can_tx_check_min_slots_free`), and here it forwards about 2500 frames/s between buses. One difference from the
+  real host: this host never calls `can_recv` (each USB packet costs simulated time), so panda's USB rx queue
+  overflows (`rx_buffer_overflow` 173323; the real panda logged 0). The cause is not confirmed yet.
+- Timing: the host's sends land 2.6 ms late (median) and at most 8.3 ms late, against the log.
+
+The firmware differs. The drive ran openpilot 0.11.2 (`4dbdd66e`), whose panda submodule is `92eb5651` with opendbc
+`4134c0d1`. The log does not record the panda firmware version itself. This repo is panda `8ae88ad1` (54 commits later)
+with opendbc `6cd8a71d`. Between those, `opendbc/safety/modes/tesla.h` changed only by refactors: safety state moved into
+a struct, a shared rising-edge latch, `GET_BYTES_BE`/`GET_BIT`, float suffixes and include guards (opendbc #3924, #3962,
+#3967, #3974, #3976, #3984, #3991, #3992). No limit or rule changed.
+
 
 panda speaks CAN and CAN FD, and it runs on the [STM32H725](https://www.st.com/resource/en/reference_manual/rm0468-stm32h723733-stm32h725735-and-stm32h730-value-line-advanced-armbased-32bit-mcus-stmicroelectronics.pdf).
 

@@ -4,6 +4,7 @@
 # Usage: ./demo build   (once: Python 3.12 venv with this repo's deps, firmware, car frames)
 #        ./demo         (needs `sim` on PATH or SIM=/path/to/sim)
 #        ./demo tesla   (the same panda on a Tesla Model 3)
+#        ./demo tesla-replay   (comma's recorded Model 3 drive through it, against the real panda's log)
 set -eu
 cd "$(dirname "$0")"
 SIM="${SIM:-sim}"
@@ -19,6 +20,11 @@ fi
 [ -f board/obj/panda_h7.bin.signed ] || { echo "firmware missing: run ./demo build first" >&2; exit 1; }
 car=toyota_prius script=sim/demo.py
 [ "${1:-}" = tesla ] && car=tesla_model_3 script=sim/demo_tesla.py
+if [ "${1:-}" = tesla-replay ]; then
+  car=tesla_replay script=sim/demo_tesla_replay.py
+  export SIM_REPLAY="$PWD/../tesla-route/window.json"  # downloaded drive and its window stay outside the repo
+  [ -f "$SIM_REPLAY" ] || .venv/bin/python sim/replay/extract.py
+fi
 [ $car = tesla_model_3 ] && export SIM_ENGAGE_AT_S=6  # USB round trips cost simulated time; leave room before engaging
 export SIM_CAR=$car
 log=$(mktemp)
@@ -27,4 +33,4 @@ sim_pid=$!
 trap 'kill $sim_pid 2>/dev/null; wait $sim_pid 2>/dev/null || true; rm -f "$log"' EXIT  # wait: frees port 5781 for the next run
 .venv/bin/python -u $script
 echo "\nwhat reached the car's bus (the car's own log):"
-grep -E "\[car\] (cruise|on car bus)" "$log" | sed 's/^\[car\] /  /'
+grep -E "\[(car|camera)\] (cruise|on car bus|bus [02]: replay done)" "$log" | sed -E 's/^\[(car|camera)\] /  /'

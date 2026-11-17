@@ -1,0 +1,15 @@
+# comma panda (cuatro, STM32H723VG), bootstub + signed app, replaying comma's public Tesla Model 3 test drive:
+# sim/cars/replay.py sends what the real panda received on bus 0 (the car), replay_camera.py bus 2 (the camera),
+# at their logged offsets (window JSON from sim/replay/extract.py). ./demo tesla-replay
+machines:
+  panda:
+    mcu: STM32H723VG
+    elf: ../board/obj/panda_h7/bootstub.elf
+    preload: ["../board/obj/panda_h7.bin.signed@0x08020000"]
+    overlay: cuatro.board
+    parts:
+      - { name: car, type: can-node, script: cars/replay.py }
+      - { name: camera, type: can-node, script: cars/replay_camera.py }
+media:
+  - { type: can, connect: [panda.fdcan1, panda.car] }     # bus 0: the car
+  - { type: can, connect: [panda.fdcan3, panda.camera] }  # bus 2: the camera (panda forwards to it)
