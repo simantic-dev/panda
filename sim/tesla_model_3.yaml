@@ -1,0 +1,15 @@
+# comma panda (cuatro, STM32H723VG) flashed as on a device (bootstub + signed app), on a Tesla Model 3 (car on bus 0, camera on bus 2).
+# The car is sim/cars/car.py on bus 0, the camera sim/cars/camera.py on bus 2.
+# The car and camera are replaying opendbc-packed frames (sim/cars/tesla_model_3.json) at the car's rates.
+machines:
+  panda:
+    mcu: STM32H723VG
+    elf: ../board/obj/panda_h7/bootstub.elf
+    preload: ["../board/obj/panda_h7.bin.signed@0x08020000"]
+    overlay: cuatro.board
+    parts:
+      - { name: car, type: can-node, script: cars/car.py }
+      - { name: camera, type: can-node, script: cars/camera.py }
+media:
+  - { type: can, connect: [panda.fdcan1, panda.car] }     # bus 0: the car
+  - { type: can, connect: [panda.fdcan3, panda.camera] }  # bus 2: the camera (panda forwards to it)

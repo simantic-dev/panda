@@ -34,6 +34,55 @@ in the simulator's time, so panda's timing checks see a real cadence.
 Not modelled: the harness relay and ignition wiring, SPI to the comma device, and the car's response to
 steering. The car is a replay, not a vehicle model. Simantic is a proprietary simulator, not open source.
 
+### Tesla Model 3
+
+```sh
+./demo tesla   # the same single simulated panda, on a Tesla Model 3
+```
+
+openpilot's setup for `TESLA_MODEL_3` (`CarInterface.get_non_essential_params(...).safetyConfigs[0]`) puts
+panda in the `tesla` safety mode. `sim/demo_tesla.py` feeds every `can_recv()` batch through opendbc's own
+`CarInterface.update()`, the CarState parser openpilot's card.py runs, and builds `DAS_steeringControl`
+with opendbc's `teslacan`. panda's Tesla safety checks messages on two buses, so both are replayed with
+opendbc-packed counters and checksums (16 frames per message, cycled):
+
+- bus 0, the car (`sim/cars/car.py`): `DI_speed`, `ESP_B`, `EPAS3S_sysStatus`, `DI_systemStatus`,
+  `ESP_status`, `DI_state` (cruise `STANDBY`, then `ENABLED` at 6 s), `UI_warning`; steady 90 km/h.
+- bus 2, the autopilot camera (`sim/cars/camera.py`): `DAS_control`, `DAS_steeringControl` (both checked by
+  panda), plus `SCCM_steeringAngleSensor`, `DAS_status`, `DAS_settings` for CarState.
+
+Real output:
+
+```
+panda 01eeffc0  firmware DEV-8ae88ad1-DEBUG
+safety mode tesla param 0x0, as openpilot sets it for TESLA_MODEL_3
+
+CANParser: bus 0 not valid (timeout or missing): 0x118 DI_systemStatus, 0x145 ESP_status, 0x155 ESP_B, 0x257 DI_speed, 0x286 DI_state, 0x311 UI_warning, 0x370 EPAS3S_sysStatus
+   0.73 s  CarState vEgo=0.00 steeringAngleDeg=-0.0 cruiseState.enabled=False cruiseState.speed=0.00 gasPressed=False brakePressed=False standstill=False canValid=False | panda controls_allowed=False
+   2.64 s  CarState vEgo=25.00 steeringAngleDeg=-0.0 cruiseState.enabled=False cruiseState.speed=27.78 gasPressed=False brakePressed=False standstill=False canValid=True | panda controls_allowed=False
+
+cruise off: controls_allowed=False
+   3.64 s  CarState vEgo=25.00 steeringAngleDeg=-0.0 cruiseState.enabled=False cruiseState.speed=27.78 gasPressed=False brakePressed=False standstill=False canValid=True | panda controls_allowed=False
+   3.66 s  openpilot DAS_steeringControl angle +0.1 deg -> BLOCKED by panda
+   4.78 s  CarState vEgo=25.00 steeringAngleDeg=-0.0 cruiseState.enabled=False cruiseState.speed=27.78 gasPressed=False brakePressed=False standstill=False canValid=True | panda controls_allowed=False
+   6.37 s  CarState vEgo=25.00 steeringAngleDeg=-0.0 cruiseState.enabled=True cruiseState.speed=27.78 gasPressed=False brakePressed=False standstill=False canValid=True | panda controls_allowed=True
+
+cruise on:  controls_allowed=True  (panda saw DI_state ENABLED by 6.48 s)
+   7.19 s  openpilot DAS_steeringControl angle +0.1 deg -> sent to car
+   7.34 s  openpilot DAS_steeringControl angle +10.0 deg -> BLOCKED by panda
+   7.44 s  CarState vEgo=25.00 steeringAngleDeg=-0.0 cruiseState.enabled=True cruiseState.speed=27.78 gasPressed=False brakePressed=False standstill=False canValid=True | panda controls_allowed=True
+
+health: safety_tx_blocked 2  safety_rx_invalid 0  faults 0
+
+what reached the car's bus (the car's own log):
+  cruise ENGAGED at 6.000 s
+  on car bus: id=0x488 data=3fff21eb at 6.597 s
+```
+
+The first CarState is parsed before the car's first frames arrive, so opendbc reports them missing. The
+10 deg step is over panda's angle rate limit at 90 km/h (`steer_angle_cmd_checks_vm`). Each USB round trip
+costs simulated time, which is why openpilot's loop is slower than 10 Hz here.
+
 
 panda speaks CAN and CAN FD, and it runs on the [STM32H725](https://www.st.com/resource/en/reference_manual/rm0468-stm32h723733-stm32h725735-and-stm32h730-value-line-advanced-armbased-32bit-mcus-stmicroelectronics.pdf).
 
