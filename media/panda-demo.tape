@@ -9,7 +9,7 @@ Set Framerate 15
 Set PlaybackSpeed 4
 Env PS1 "$ "
 Hide
-Type 'export SIM="$HOME/dev/simantic/pyrite/.worktrees/usb-raw-vtime/target/release/sim" && cd "$(git rev-parse --show-toplevel)" && clear' Enter
+Type 'cd "$(git rev-parse --show-toplevel)" && clear' Enter
 Show
 Type "./demo" Enter
 Wait+Screen@900s /on car bus/
