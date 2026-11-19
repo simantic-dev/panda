@@ -2,6 +2,10 @@
 
 # Welcome to panda
 
+<!-- simantic-banner -->
+> **Run this firmware with no hardware.** [Simantic](https://simantic.com) simulates the whole board, peripherals, sensors and buses included. Try it free at **[simantic.com](https://simantic.com)**, or run it locally: `curl -fsSL https://simantic.com/install | sh`
+
+
 > **This fork:** panda's own firmware (bootstub + signed app, built from this repo) runs on a simulated
 > STM32H723, on a simulated Toyota Prius's CAN bus, driven by comma's own panda library. No hardware.
 
